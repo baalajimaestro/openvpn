@@ -297,6 +297,12 @@ is_special_addr(const char *addr_str)
 }
 
 static bool
+should_use_dhcp_gateway(const char *gateway, const struct route_list *rl)
+{
+    return (rl->spec.flags & RTSA_DHCP_ENDPOINT && (!is_route_parm_defined(gateway) || !strcmp(gateway, "vpn_gateway")));
+}
+
+static bool
 init_route(struct route_ipv4 *r,
            struct addrinfo **network_list,
            const struct route_option *ro,
@@ -363,7 +369,11 @@ init_route(struct route_ipv4 *r,
 
     /* gateway */
 
-    if (is_route_parm_defined(ro->gateway))
+    if (should_use_dhcp_gateway(ro->gateway, rl))
+    {
+        r->flags |= RT_DHCP_GATEWAY;
+    }
+    else if (is_route_parm_defined(ro->gateway))
     {
         if (!get_special_addr(rl, ro->gateway, &r->gateway, &status))
         {
@@ -415,7 +425,10 @@ init_route(struct route_ipv4 *r,
         r->flags |= RT_METRIC_DEFINED;
     }
 
-    r->flags |= RT_DEFINED;
+    if ((r->flags & RT_DHCP_GATEWAY) == 0)
+    {
+        r->flags |= RT_DEFINED;
+    }
 
     return true;
 
@@ -537,6 +550,16 @@ route_list_add_vpn_gateway(struct route_list *rl,
     rl->spec.remote_endpoint = addr;
     rl->spec.flags |= RTSA_REMOTE_ENDPOINT;
     setenv_route_addr(es, "vpn_gateway", rl->spec.remote_endpoint, -1);
+
+    struct route_ipv4 *r;
+    for (r = rl->routes; r; r = r->next)
+    {
+        if (r->flags & RT_DHCP_GATEWAY)
+        {
+            r->gateway = addr;
+            r->flags |= RT_DEFINED;
+        }
+    }
 }
 
 static void
@@ -607,6 +630,7 @@ bool
 init_route_list(struct route_list *rl,
                 const struct route_option_list *opt,
                 const char *remote_endpoint,
+                bool remote_endpoint_dhcp,
                 int default_metric,
                 in_addr_t remote_host,
                 struct env_set *es,
@@ -672,6 +696,10 @@ init_route_list(struct route_list *rl,
                 remote_endpoint);
             ret = false;
         }
+    }
+    else if (remote_endpoint_dhcp)
+    {
+        rl->spec.flags |= RTSA_DHCP_ENDPOINT;
     }
 
     if (rl->flags & RG_ENABLE)

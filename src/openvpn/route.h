@@ -63,6 +63,7 @@ struct route_special_addr
 #define RTSA_REMOTE_ENDPOINT  (1<<0)
 #define RTSA_REMOTE_HOST      (1<<1)
 #define RTSA_DEFAULT_METRIC   (1<<2)
+#define RTSA_DHCP_ENDPOINT    (1<<3)
     unsigned int flags;
 
     in_addr_t remote_endpoint;
@@ -113,6 +114,7 @@ struct route_ipv4 {
 #define RT_DEFINED        (1<<0)
 #define RT_ADDED          (1<<1)
 #define RT_METRIC_DEFINED (1<<2)
+#define RT_DHCP_GATEWAY   (1<<3)
     struct route_ipv4 *next;
     unsigned int flags;
     const struct route_option *option;
@@ -286,6 +288,7 @@ void add_route_ipv6_to_option_list(struct route_ipv6_option_list *l,
 bool init_route_list(struct route_list *rl,
                      const struct route_option_list *opt,
                      const char *remote_endpoint,
+                     bool remote_endpoint_dhcp,
                      int default_metric,
                      in_addr_t remote_host,
                      struct env_set *es,
